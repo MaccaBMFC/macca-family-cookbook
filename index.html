@@ -14,8 +14,11 @@
 <body>
   <header class="hero">
     <div class="hero-inner">
-      <div class="logo">🍞</div>
-      <p class="eyebrow">Version 1.0 · The Beginning</p>
+      <div class="topline">
+        <div class="logo">🍞</div>
+        <button id="manager-button" class="ghost-button">⚙️ Recipe Manager</button>
+      </div>
+      <p class="eyebrow">Version 1.1 · Recipe Manager</p>
       <h1>The Macca Family Cookbook</h1>
       <p class="tagline">Simple meals. Homemade. Family tested.</p>
       <div class="search-wrap">
@@ -30,9 +33,12 @@
       <button class="filter" data-category="Breakfast">Breakfast</button>
       <button class="filter" data-category="Beef">Beef</button>
       <button class="filter" data-category="Chicken">Chicken</button>
+      <button class="filter" data-category="Lamb">Lamb</button>
+      <button class="filter" data-category="Pork">Pork</button>
       <button class="filter" data-category="Seafood">Seafood</button>
       <button class="filter" data-category="Bread & Baking">Bread</button>
       <button class="filter" data-category="Slow Cooker">Slow Cooker</button>
+      <button class="filter" data-category="Drinks">Drinks</button>
     </section>
 
     <section class="section-head">
@@ -43,18 +49,106 @@
       <span id="count" class="count"></span>
     </section>
 
+    <p id="status" class="status" hidden></p>
     <section id="recipe-grid" class="recipe-grid" aria-live="polite"></section>
   </main>
 
   <dialog id="recipe-dialog">
-    <button id="close-dialog" class="close" aria-label="Close recipe">×</button>
+    <button class="close" data-close="recipe-dialog" aria-label="Close recipe">×</button>
     <article id="recipe-detail"></article>
   </dialog>
 
-  <footer>
-    <p>Made for the Macca family ❤️</p>
-  </footer>
+  <dialog id="auth-dialog" class="small-dialog">
+    <button class="close" data-close="auth-dialog" aria-label="Close login">×</button>
+    <section class="dialog-body">
+      <p class="eyebrow dark">Private area</p>
+      <h2>Recipe Manager</h2>
+      <p>Sign in with an account created in Supabase.</p>
+      <form id="login-form" class="form-stack">
+        <label>Email<input id="login-email" type="email" required autocomplete="email"></label>
+        <label>Password<input id="login-password" type="password" required autocomplete="current-password"></label>
+        <button class="primary-button" type="submit">Sign in</button>
+        <p id="login-message" class="form-message"></p>
+      </form>
+    </section>
+  </dialog>
 
+  <dialog id="manager-dialog">
+    <button class="close" data-close="manager-dialog" aria-label="Close manager">×</button>
+    <section class="dialog-body">
+      <div class="manager-head">
+        <div>
+          <p class="eyebrow dark">Control centre</p>
+          <h2>Recipe Manager</h2>
+          <p id="signed-in-as" class="muted"></p>
+        </div>
+        <button id="sign-out-button" class="secondary-button">Sign out</button>
+      </div>
+
+      <form id="recipe-form" class="recipe-form">
+        <input id="recipe-id" type="hidden">
+
+        <label class="wide">Recipe name
+          <input id="title" required maxlength="100" placeholder="Honey Soy Chicken">
+        </label>
+
+        <label>Emoji
+          <input id="emoji" maxlength="8" placeholder="🍗">
+        </label>
+
+        <label>Category
+          <select id="category" required>
+            <option value="">Select…</option>
+            <option>Bread & Baking</option><option>Breakfast</option><option>Beef</option>
+            <option>Chicken</option><option>Lamb</option><option>Pork</option>
+            <option>Seafood</option><option>Pasta</option><option>Pizza</option>
+            <option>Slow Cooker</option><option>BBQ</option><option>Sides</option>
+            <option>Desserts</option><option>Drinks</option>
+          </select>
+        </label>
+
+        <label>Prep time<input id="prep" placeholder="15 minutes"></label>
+        <label>Cook time<input id="cook" placeholder="30 minutes"></label>
+        <label>Serves<input id="serves" placeholder="4"></label>
+
+        <label class="wide">Story
+          <textarea id="story" rows="3" placeholder="Why this recipe belongs in the family cookbook…"></textarea>
+        </label>
+
+        <label class="wide">Tags
+          <input id="tags" placeholder="Kid Approved, Freezer Friendly, High Iron">
+          <small>Separate tags with commas.</small>
+        </label>
+
+        <label class="wide">Ingredients
+          <textarea id="ingredients" rows="8" required placeholder="One ingredient per line"></textarea>
+        </label>
+
+        <label class="wide">Method
+          <textarea id="method" rows="10" required placeholder="One step per line"></textarea>
+        </label>
+
+        <label class="wide">Macca's Tips
+          <textarea id="tips" rows="5" placeholder="One tip per line"></textarea>
+        </label>
+
+        <div class="form-actions wide">
+          <button id="cancel-edit-button" class="secondary-button" type="button" hidden>Cancel edit</button>
+          <button class="primary-button" type="submit">💾 Save Recipe</button>
+        </div>
+        <p id="save-message" class="form-message wide"></p>
+      </form>
+
+      <hr>
+      <h3>Existing recipes</h3>
+      <div id="manager-list" class="manager-list"></div>
+    </section>
+  </dialog>
+
+  <footer><p>Made for the Macca family ❤️</p></footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

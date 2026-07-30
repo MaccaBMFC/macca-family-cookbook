@@ -1,30 +1,25 @@
-THE MACCA FAMILY COOKBOOK — VERSION 1.0
+THE MACCA FAMILY COOKBOOK — VERSION 1.1
 
-QUICK PREVIEW ON WINDOWS
-1. Unzip the folder.
-2. Double-click index.html.
-3. The cookbook will open in your browser.
+FILES TO UPLOAD TO GITHUB
+Upload every file in this folder and replace the older files with the same names.
 
-IMPORTANT
-The search and recipe pages work when opened directly.
-For offline installation and the phone app icon, the folder must be hosted on HTTPS.
+SUPABASE SETUP
+1. Create a Supabase project.
+2. Open SQL Editor → New query.
+3. Open supabase-setup.sql from this folder, copy everything, paste it into the SQL Editor, and click Run.
+4. Open Authentication → Users → Add user.
+5. Create your own email/password account. Create Jess's account later if desired.
+6. Find the Project URL and Publishable key in Supabase's Connect or project settings area.
+7. Open config.js and replace the two PASTE_... values.
+8. Upload all updated files to GitHub.
+9. After GitHub Pages redeploys, refresh the cookbook.
+10. Tap Recipe Manager and sign in.
 
-EASIEST WAY TO PUT IT ONLINE
-1. Create a free GitHub account.
-2. Create a new public repository called macca-family-cookbook.
-3. Upload all files from this folder.
-4. Open repository Settings > Pages.
-5. Under Build and deployment, choose Deploy from a branch.
-6. Select the main branch and root folder, then Save.
-7. GitHub will provide the cookbook web address.
+SECURITY
+The publishable key is designed to be used in browser code.
+The SQL script enables Row Level Security:
+- anyone may read recipes
+- only authenticated accounts may add, edit or delete recipes
 
-INSTALL ON IPHONE
-1. Open the cookbook web address in Safari.
-2. Tap the Share button.
-3. Tap Add to Home Screen.
-4. Name it Macca Cookbook and tap Add.
-
-UPDATING RECIPES
-Recipes currently live near the top of app.js.
-Each recipe is a structured block containing title, category, ingredients,
-method and tips. Future versions can move this into an easier editor.
+DO NOT place a Supabase service-role or secret key in config.js.
+Use only the Publishable key (or legacy anon public key if that is what the dashboard displays).

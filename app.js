@@ -1,226 +1,267 @@
 
-const recipes = [
-  {
-    "id": "beef-ragu",
-    "title": "Slow Cooker Beef Ragu",
-    "emoji": "🍝",
-    "category": "Beef",
-    "tags": [
-      "Kid Approved",
-      "Freezer Friendly",
-      "Slow Cooker",
-      "High Iron"
-    ],
-    "prep": "20 minutes",
-    "cook": "8 hours",
-    "serves": "6",
-    "story": "A rich family favourite that is even better the next day and freezes beautifully.",
-    "ingredients": [
-      "1 kg chuck steak, cut into large pieces",
-      "1 onion, finely chopped",
-      "2 carrots, finely chopped",
-      "3 garlic cloves, crushed",
-      "2 tbsp tomato paste",
-      "800 g crushed tomatoes",
-      "1 cup beef stock",
-      "1 tsp dried oregano",
-      "Salt and pepper",
-      "Pappardelle and parmesan, to serve"
-    ],
-    "method": [
-      "Season the beef. Brown it in batches in a hot pan, then transfer it to the slow cooker.",
-      "Cook the onion and carrot for 5 minutes. Add the garlic and tomato paste and cook for another minute.",
-      "Add everything to the slow cooker. Cook on LOW for 8 hours or until the beef pulls apart easily.",
-      "Shred the beef, stir it through the sauce, and serve with pasta and parmesan."
-    ],
-    "tips": [
-      "Freeze in meal-sized portions.",
-      "Add a splash of pasta water before serving if the sauce is very thick.",
-      "Serve with homemade bread or garlic bread."
-    ]
-  },
-  {
-    "id": "french-toast",
-    "title": "Homemade Bread French Toast",
-    "emoji": "🍞",
-    "category": "Breakfast",
-    "tags": [
-      "Kid Approved",
-      "Under 30 Minutes"
-    ],
-    "prep": "5 minutes",
-    "cook": "10 minutes",
-    "serves": "4",
-    "story": "A brilliant use for the soft homemade loaf, especially once it is a day old.",
-    "ingredients": [
-      "8 slices homemade bread",
-      "3 eggs",
-      "3/4 cup milk",
-      "1 tsp vanilla",
-      "1/2 tsp cinnamon",
-      "Butter, for cooking",
-      "Fruit, yoghurt or maple syrup, to serve"
-    ],
-    "method": [
-      "Whisk the eggs, milk, vanilla and cinnamon in a shallow bowl.",
-      "Dip each slice briefly on both sides. Do not leave very soft bread soaking.",
-      "Cook in a buttered frying pan over medium heat for 2–3 minutes per side.",
-      "Serve immediately with your preferred toppings."
-    ],
-    "tips": [
-      "Lay very soft slices out for 20–30 minutes before dipping.",
-      "Cut into fingers for younger kids."
-    ]
-  },
-  {
-    "id": "thai-snapper-noodles",
-    "title": "Thai Snapper with Fresh Noodles",
-    "emoji": "🐟",
-    "category": "Seafood",
-    "tags": [
-      "Kid Approved",
-      "Under 30 Minutes",
-      "Healthy Choice"
-    ],
-    "prep": "10 minutes",
-    "cook": "15 minutes",
-    "serves": "4",
-    "story": "A light, quick dinner that keeps the Thai flavours gentle enough for the kids.",
-    "ingredients": [
-      "4 king snapper fillets",
-      "500 g fresh Thai-style noodles",
-      "1 carrot, julienned",
-      "1 capsicum, sliced",
-      "2 tbsp soy sauce",
-      "1 tbsp honey",
-      "1 tsp sesame oil",
-      "1 lime",
-      "Neutral oil, for cooking"
-    ],
-    "method": [
-      "Mix the soy sauce, honey, sesame oil and half the lime juice.",
-      "Cook the vegetables in a hot wok for 3–4 minutes. Add the noodles and sauce and toss until hot.",
-      "Pan-fry the snapper in a little oil until opaque and flaky.",
-      "Serve the fish over the noodles with the remaining lime."
-    ],
-    "tips": [
-      "Keep chilli on the table for adults rather than adding it to the whole dish.",
-      "Do not overcook the snapper."
-    ]
-  }
-];
+const cfg = window.MACCA_CONFIG || {};
+const configured = cfg.SUPABASE_URL && !cfg.SUPABASE_URL.startsWith("PASTE_")
+  && cfg.SUPABASE_PUBLISHABLE_KEY && !cfg.SUPABASE_PUBLISHABLE_KEY.startsWith("PASTE_");
 
-const grid = document.getElementById('recipe-grid');
-const search = document.getElementById('search');
-const count = document.getElementById('count');
-const dialog = document.getElementById('recipe-dialog');
-const detail = document.getElementById('recipe-detail');
-const closeDialog = document.getElementById('close-dialog');
-let activeCategory = 'All';
+const db = configured
+  ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_PUBLISHABLE_KEY)
+  : null;
 
+let recipes = [];
+let activeCategory = "All";
+let currentUser = null;
+
+const $ = id => document.getElementById(id);
+const grid = $("recipe-grid");
+const search = $("search");
+const count = $("count");
+const statusBox = $("status");
+const recipeDialog = $("recipe-dialog");
+const authDialog = $("auth-dialog");
+const managerDialog = $("manager-dialog");
+
+function lines(value) {
+  return value.split("\n").map(x => x.trim()).filter(Boolean);
+}
+function tags(value) {
+  return value.split(",").map(x => x.trim()).filter(Boolean);
+}
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+function showStatus(message) {
+  statusBox.textContent = message;
+  statusBox.hidden = !message;
+}
 function matchesRecipe(recipe, query) {
   const haystack = [
-    recipe.title,
-    recipe.category,
-    recipe.story,
-    ...recipe.tags,
-    ...recipe.ingredients
-  ].join(' ').toLowerCase();
+    recipe.title, recipe.category, recipe.story,
+    ...safeArray(recipe.tags), ...safeArray(recipe.ingredients)
+  ].join(" ").toLowerCase();
   return haystack.includes(query.toLowerCase());
+}
+
+async function loadRecipes() {
+  if (!db) {
+    showStatus("Supabase is not connected yet. Add your project URL and publishable key to config.js.");
+    grid.innerHTML = '<div class="empty">Complete the Supabase setup to load recipes.</div>';
+    return;
+  }
+  showStatus("Loading recipes…");
+  const { data, error } = await db.from("recipes").select("*").order("title");
+  if (error) {
+    showStatus(`Could not load recipes: ${error.message}`);
+    return;
+  }
+  recipes = data || [];
+  showStatus("");
+  render();
+  renderManagerList();
 }
 
 function render() {
   const q = search.value.trim();
   const filtered = recipes.filter(recipe => {
-    const categoryMatch =
-      activeCategory === 'All' ||
-      recipe.category === activeCategory ||
-      (activeCategory === 'Slow Cooker' && recipe.tags.includes('Slow Cooker'));
+    const categoryMatch = activeCategory === "All"
+      || recipe.category === activeCategory
+      || (activeCategory === "Slow Cooker" && safeArray(recipe.tags).includes("Slow Cooker"));
     return categoryMatch && (!q || matchesRecipe(recipe, q));
   });
 
-  count.textContent = `${filtered.length} recipe${filtered.length === 1 ? '' : 's'}`;
-
+  count.textContent = `${filtered.length} recipe${filtered.length === 1 ? "" : "s"}`;
   if (!filtered.length) {
-    grid.innerHTML = '<div class="empty">No recipes found. Try another search.</div>';
+    grid.innerHTML = '<div class="empty">No recipes found.</div>';
     return;
   }
 
   grid.innerHTML = filtered.map(recipe => `
     <article class="card" tabindex="0" role="button" data-id="${recipe.id}">
-      <div class="card-icon">${recipe.emoji}</div>
+      <div class="card-icon">${recipe.emoji || "🍽️"}</div>
       <p class="eyebrow dark">${recipe.category}</p>
       <h3>${recipe.title}</h3>
-      <p>${recipe.story}</p>
-      <div class="meta">
-        <span>⏱ ${recipe.prep} prep</span>
-        <span>🍽 Serves ${recipe.serves}</span>
-      </div>
-      <div class="badges">
-        ${recipe.tags.map(tag => `<span class="badge">${tag}</span>`).join('')}
-      </div>
-    </article>
-  `).join('');
+      <p>${recipe.story || ""}</p>
+      <div class="meta"><span>⏱ ${recipe.prep || "—"} prep</span><span>🍽 Serves ${recipe.serves || "—"}</span></div>
+      <div class="badges">${safeArray(recipe.tags).map(tag => `<span class="badge">${tag}</span>`).join("")}</div>
+    </article>`).join("");
 
-  document.querySelectorAll('.card').forEach(card => {
+  document.querySelectorAll(".card").forEach(card => {
     const open = () => openRecipe(card.dataset.id);
-    card.addEventListener('click', open);
-    card.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') open();
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") open();
     });
   });
 }
 
 function openRecipe(id) {
   const r = recipes.find(recipe => recipe.id === id);
-  detail.innerHTML = `
-    <div class="card-icon">${r.emoji}</div>
+  if (!r) return;
+  $("recipe-detail").innerHTML = `
+    <div class="card-icon">${r.emoji || "🍽️"}</div>
     <p class="eyebrow dark">${r.category}</p>
     <h2>${r.title}</h2>
-    <div class="badges">${r.tags.map(tag => `<span class="badge">${tag}</span>`).join('')}</div>
-    <p class="story">${r.story}</p>
-
+    <div class="badges">${safeArray(r.tags).map(tag => `<span class="badge">${tag}</span>`).join("")}</div>
+    ${r.story ? `<p class="story">${r.story}</p>` : ""}
     <div class="info-strip">
-      <div class="info-box"><strong>Prep</strong>${r.prep}</div>
-      <div class="info-box"><strong>Cook</strong>${r.cook}</div>
-      <div class="info-box"><strong>Serves</strong>${r.serves}</div>
+      <div class="info-box"><strong>Prep</strong>${r.prep || "—"}</div>
+      <div class="info-box"><strong>Cook</strong>${r.cook || "—"}</div>
+      <div class="info-box"><strong>Serves</strong>${r.serves || "—"}</div>
     </div>
-
-    <section class="recipe-section">
-      <h3>🛒 Ingredients</h3>
-      <ul>${r.ingredients.map(item => `<li>${item}</li>`).join('')}</ul>
-    </section>
-
-    <section class="recipe-section">
-      <h3>👨‍🍳 Method</h3>
-      <ol>${r.method.map(step => `<li>${step}</li>`).join('')}</ol>
-    </section>
-
-    <section class="recipe-section tip-box">
-      <h3>💡 Macca's Tips</h3>
-      <ul>${r.tips.map(tip => `<li>${tip}</li>`).join('')}</ul>
-    </section>
+    <section class="recipe-section"><h3>🛒 Ingredients</h3><ul>${safeArray(r.ingredients).map(x => `<li>${x}</li>`).join("")}</ul></section>
+    <section class="recipe-section"><h3>👨‍🍳 Method</h3><ol>${safeArray(r.method).map(x => `<li>${x}</li>`).join("")}</ol></section>
+    ${safeArray(r.tips).length ? `<section class="recipe-section tip-box"><h3>💡 Macca's Tips</h3><ul>${r.tips.map(x => `<li>${x}</li>`).join("")}</ul></section>` : ""}
   `;
-  dialog.showModal();
+  recipeDialog.showModal();
 }
 
-document.querySelectorAll('.filter').forEach(button => {
-  button.addEventListener('click', () => {
-    document.querySelectorAll('.filter').forEach(b => b.classList.remove('active'));
-    button.classList.add('active');
+async function openManager() {
+  if (!db) {
+    alert("Connect Supabase in config.js first.");
+    return;
+  }
+  const { data: { session } } = await db.auth.getSession();
+  currentUser = session?.user || null;
+  if (!currentUser) {
+    authDialog.showModal();
+    return;
+  }
+  $("signed-in-as").textContent = `Signed in as ${currentUser.email}`;
+  renderManagerList();
+  managerDialog.showModal();
+}
+
+$("login-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  $("login-message").textContent = "Signing in…";
+  const { data, error } = await db.auth.signInWithPassword({
+    email: $("login-email").value.trim(),
+    password: $("login-password").value
+  });
+  if (error) {
+    $("login-message").textContent = error.message;
+    return;
+  }
+  currentUser = data.user;
+  $("login-message").textContent = "";
+  authDialog.close();
+  $("signed-in-as").textContent = `Signed in as ${currentUser.email}`;
+  managerDialog.showModal();
+});
+
+$("sign-out-button").addEventListener("click", async () => {
+  await db.auth.signOut();
+  currentUser = null;
+  managerDialog.close();
+});
+
+$("recipe-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const id = $("recipe-id").value;
+  const payload = {
+    title: $("title").value.trim(),
+    emoji: $("emoji").value.trim() || "🍽️",
+    category: $("category").value,
+    prep: $("prep").value.trim(),
+    cook: $("cook").value.trim(),
+    serves: $("serves").value.trim(),
+    story: $("story").value.trim(),
+    tags: tags($("tags").value),
+    ingredients: lines($("ingredients").value),
+    method: lines($("method").value),
+    tips: lines($("tips").value),
+    updated_at: new Date().toISOString()
+  };
+
+  $("save-message").textContent = "Saving…";
+  let result;
+  if (id) {
+    result = await db.from("recipes").update(payload).eq("id", id);
+  } else {
+    result = await db.from("recipes").insert(payload);
+  }
+  if (result.error) {
+    $("save-message").textContent = result.error.message;
+    return;
+  }
+  $("save-message").textContent = "Recipe saved.";
+  $("save-message").classList.add("success");
+  clearForm();
+  await loadRecipes();
+});
+
+function clearForm() {
+  $("recipe-form").reset();
+  $("recipe-id").value = "";
+  $("cancel-edit-button").hidden = true;
+  $("save-message").textContent = "";
+  $("save-message").classList.remove("success");
+}
+
+function editRecipe(id) {
+  const r = recipes.find(x => x.id === id);
+  if (!r) return;
+  $("recipe-id").value = r.id;
+  $("title").value = r.title || "";
+  $("emoji").value = r.emoji || "";
+  $("category").value = r.category || "";
+  $("prep").value = r.prep || "";
+  $("cook").value = r.cook || "";
+  $("serves").value = r.serves || "";
+  $("story").value = r.story || "";
+  $("tags").value = safeArray(r.tags).join(", ");
+  $("ingredients").value = safeArray(r.ingredients).join("\n");
+  $("method").value = safeArray(r.method).join("\n");
+  $("tips").value = safeArray(r.tips).join("\n");
+  $("cancel-edit-button").hidden = false;
+  $("recipe-form").scrollIntoView({ behavior: "smooth" });
+}
+
+async function deleteRecipe(id) {
+  const r = recipes.find(x => x.id === id);
+  if (!r || !confirm(`Delete "${r.title}"?`)) return;
+  const { error } = await db.from("recipes").delete().eq("id", id);
+  if (error) {
+    alert(error.message);
+    return;
+  }
+  await loadRecipes();
+}
+
+function renderManagerList() {
+  const list = $("manager-list");
+  if (!list) return;
+  if (!recipes.length) {
+    list.innerHTML = '<p class="muted">No recipes yet.</p>';
+    return;
+  }
+  list.innerHTML = recipes.map(r => `
+    <div class="manager-row">
+      <div><strong>${r.emoji || "🍽️"} ${r.title}</strong><div class="muted">${r.category}</div></div>
+      <div class="manager-row-actions">
+        <button class="secondary-button" data-edit="${r.id}">Edit</button>
+        <button class="danger-button" data-delete="${r.id}">Delete</button>
+      </div>
+    </div>`).join("");
+  list.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => editRecipe(b.dataset.edit));
+  list.querySelectorAll("[data-delete]").forEach(b => b.onclick = () => deleteRecipe(b.dataset.delete));
+}
+
+document.querySelectorAll(".filter").forEach(button => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".filter").forEach(b => b.classList.remove("active"));
+    button.classList.add("active");
     activeCategory = button.dataset.category;
     render();
   });
 });
-
-search.addEventListener('input', render);
-closeDialog.addEventListener('click', () => dialog.close());
-dialog.addEventListener('click', e => {
-  if (e.target === dialog) dialog.close();
+document.querySelectorAll("[data-close]").forEach(button => {
+  button.addEventListener("click", () => $(button.dataset.close).close());
 });
+search.addEventListener("input", render);
+$("manager-button").addEventListener("click", openManager);
+$("cancel-edit-button").addEventListener("click", clearForm);
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));
 }
-
-render();
+loadRecipes();
