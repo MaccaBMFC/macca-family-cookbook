@@ -61,18 +61,7 @@
           <span id="count" class="recipe-count"></span>
         </div>
 
-        <div class="filter-bar" aria-label="Recipe filters">
-          <button class="filter active" data-category="All">All recipes</button>
-          <button class="filter" data-category="Breakfast">Breakfast</button>
-          <button class="filter" data-category="Beef">Beef</button>
-          <button class="filter" data-category="Chicken">Chicken</button>
-          <button class="filter" data-category="Lamb">Lamb</button>
-          <button class="filter" data-category="Pork">Pork</button>
-          <button class="filter" data-category="Seafood">Seafood</button>
-          <button class="filter" data-category="Bread & Baking">Bread</button>
-          <button class="filter" data-category="Slow Cooker">Slow Cooker</button>
-          <button class="filter" data-category="Drinks">Drinks</button>
-        </div>
+        <div id="filter-bar" class="filter-bar" aria-label="Recipe filters"></div>
 
         <p id="status" class="status" hidden></p>
         <section id="recipe-grid" class="recipe-grid" aria-live="polite"></section>
@@ -124,6 +113,7 @@
       <div class="manager-tabs">
         <button class="manager-tab active" data-manager-tab="form">➕ Add recipe</button>
         <button class="manager-tab" data-manager-tab="library">📚 Recipe library</button>
+        <button class="manager-tab" data-manager-tab="categories">🏷️ Categories</button>
       </div>
 
       <section id="manager-form-panel">
@@ -131,7 +121,7 @@
           <input id="recipe-id" type="hidden">
           <label class="wide">Recipe name<input id="title" required maxlength="100" placeholder="Honey Soy Chicken"></label>
           <label>Recipe icon<input id="emoji" maxlength="8" placeholder="🍗"></label>
-          <label>Category<select id="category" required><option value="">Select…</option><option>Bread & Baking</option><option>Breakfast</option><option>Beef</option><option>Chicken</option><option>Lamb</option><option>Pork</option><option>Seafood</option><option>Pasta</option><option>Pizza</option><option>Slow Cooker</option><option>BBQ</option><option>Sides</option><option>Desserts</option><option>Drinks</option></select></label>
+          <label>Category<select id="category" required><option value="">Select…</option></select></label>
           <label>Prep time<input id="prep" placeholder="15 minutes"></label>
           <label>Cook time<input id="cook" placeholder="30 minutes"></label>
           <label>Serves<input id="serves" placeholder="4"></label>
@@ -158,6 +148,28 @@
         <div class="library-heading"><h3>Your recipe library</h3><span id="manager-count" class="muted"></span></div>
         <div id="manager-list" class="manager-list"></div>
       </section>
+
+      <section id="manager-categories-panel" hidden>
+        <div class="library-heading">
+          <div>
+            <h3>Recipe categories</h3>
+            <p class="muted">Add a category once and it will appear in the recipe form and on the cookbook home screen.</p>
+          </div>
+        </div>
+
+        <form id="category-form" class="category-form">
+          <label>Category name
+            <input id="category-name" maxlength="50" required placeholder="Vegetarian">
+          </label>
+          <label>Icon
+            <input id="category-icon" maxlength="8" placeholder="🥗">
+          </label>
+          <button class="primary-button" type="submit">＋ Add category</button>
+        </form>
+        <p id="category-message" class="form-message"></p>
+        <div id="category-list" class="category-list"></div>
+      </section>
+
     </section>
   </dialog>
 

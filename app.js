@@ -4,6 +4,7 @@ const db = configured ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPAB
 
 const STANDARD_BADGES = ["Family Favourite","Kid Approved","Freezer Friendly","Slow Cooker","BBQ","Bread Maker","Caravan Friendly","Budget Friendly","High Iron","Healthy Choice","Under 30 Minutes","Meal Prep"];
 let recipes = [];
+let categories = [];
 let activeCategory = "All";
 let currentUser = null;
 const $ = id => document.getElementById(id);
@@ -22,17 +23,47 @@ function recipeSearchText(r){return [r.title,r.category,r.story,...safeArray(r.t
 function isFavourite(r){return safeArray(r.tags).includes("Family Favourite")}
 
 async function loadRecipes(){
-  if(!db){showStatus("Supabase is not connected. Keep your existing configured config.js file when uploading this version.");grid.innerHTML='<div class="empty">Connect Supabase to load recipes.</div>';return}
+  if(!db){showStatus("Supabase is not connected. Keep your working config.js file.");grid.innerHTML='<div class="empty">Connect Supabase to load recipes.</div>';return}
   showStatus("Loading the family cookbook…");
-  const {data,error}=await db.from("recipes").select("*").order("title");
-  if(error){showStatus(`Could not load recipes: ${error.message}`);return}
-  recipes=data||[];showStatus("");renderEverything();
+  const [recipeResult, categoryResult] = await Promise.all([
+    db.from("recipes").select("*").order("title"),
+    db.from("categories").select("*").order("sort_order").order("name")
+  ]);
+  if(recipeResult.error){showStatus(`Could not load recipes: ${recipeResult.error.message}`);return}
+  if(categoryResult.error){showStatus(`Could not load categories: ${categoryResult.error.message}`);return}
+  recipes=recipeResult.data||[];
+  categories=categoryResult.data||[];
+  showStatus("");
+  renderEverything();
 }
 
-function renderEverything(){renderStats();renderFeatured();renderRecipes();renderManagerList()}
+function renderEverything(){renderCategoryControls();renderStats();renderFeatured();renderRecipes();renderManagerList();renderCategoryList()}
+
+function renderCategoryControls(){
+  const filterBar=$("filter-bar");
+  const current=activeCategory;
+  filterBar.innerHTML=[
+    `<button class="filter ${current==="All"?"active":""}" data-category="All">All recipes</button>`,
+    ...categories.map(c=>`<button class="filter ${current===c.name?"active":""}" data-category="${escapeHtml(c.name)}">${escapeHtml(c.icon||"🍽️")} ${escapeHtml(c.name)}</button>`)
+  ].join("");
+  filterBar.querySelectorAll(".filter").forEach(b=>b.onclick=()=>{
+    activeCategory=b.dataset.category;
+    renderCategoryControls();
+    renderRecipes();
+  });
+
+  const select=$("category");
+  const selected=select.value;
+  select.innerHTML='<option value="">Select…</option>'+categories.map(c=>`<option value="${escapeHtml(c.name)}">${escapeHtml(c.icon||"🍽️")} ${escapeHtml(c.name)}</option>`).join("");
+  if(categories.some(c=>c.name===selected))select.value=selected;
+}
+function categoryIcon(name){
+  return categories.find(c=>c.name===name)?.icon||"🍽️";
+}
+
 function renderStats(){
   $("stat-recipes").textContent=recipes.length;
-  $("stat-categories").textContent=new Set(recipes.map(r=>r.category).filter(Boolean)).size;
+  $("stat-categories").textContent=categories.length;
   $("stat-favourites").textContent=recipes.filter(isFavourite).length;
 }
 function renderFeatured(){
@@ -81,12 +112,52 @@ $("login-form").addEventListener("submit",async e=>{e.preventDefault();$("login-
 $("sign-out-button").onclick=async()=>{await db.auth.signOut();currentUser=null;$("manager-dialog").close()};
 $("recipe-form").addEventListener("submit",async e=>{e.preventDefault();const id=$("recipe-id").value;const payload={title:$("title").value.trim(),emoji:$("emoji").value.trim()||"🍽️",category:$("category").value,prep:$("prep").value.trim(),cook:$("cook").value.trim(),serves:$("serves").value.trim(),story:$("story").value.trim(),tags:selectedTags(),ingredients:lines($("ingredients").value),method:lines($("method").value),tips:lines($("tips").value),updated_at:new Date().toISOString()};$("save-message").textContent="Saving…";const result=id?await db.from("recipes").update(payload).eq("id",id):await db.from("recipes").insert(payload);if(result.error){$("save-message").textContent=result.error.message;return}$("save-message").textContent="Recipe saved beautifully.";$("save-message").classList.add("success");clearForm();await loadRecipes();switchManagerTab("library")});
 function clearForm(){$("recipe-form").reset();$("recipe-id").value="";$("cancel-edit-button").hidden=true;$("save-message").textContent="";$("save-message").classList.remove("success")}
-function editRecipe(id){const r=recipes.find(x=>x.id===id);if(!r)return;switchManagerTab("form");$("recipe-id").value=r.id;$("title").value=r.title||"";$("emoji").value=r.emoji||"";$("category").value=r.category||"";$("prep").value=r.prep||"";$("cook").value=r.cook||"";$("serves").value=r.serves||"";$("story").value=r.story||"";$("ingredients").value=safeArray(r.ingredients).join("\n");$("method").value=safeArray(r.method).join("\n");$("tips").value=safeArray(r.tips).join("\n");document.querySelectorAll("#badge-options input").forEach(x=>x.checked=safeArray(r.tags).includes(x.value));$("tags").value=safeArray(r.tags).filter(t=>!STANDARD_BADGES.includes(t)).join(", ");$("cancel-edit-button").hidden=false;$("recipe-form").scrollIntoView({behavior:"smooth"})}
+function editRecipe(id){const r=recipes.find(x=>x.id===id);if(!r)return;switchManagerTab("form");$("recipe-id").value=r.id;$("title").value=r.title||"";$("emoji").value=r.emoji||"";renderCategoryControls();$("category").value=r.category||"";$("prep").value=r.prep||"";$("cook").value=r.cook||"";$("serves").value=r.serves||"";$("story").value=r.story||"";$("ingredients").value=safeArray(r.ingredients).join("\n");$("method").value=safeArray(r.method).join("\n");$("tips").value=safeArray(r.tips).join("\n");document.querySelectorAll("#badge-options input").forEach(x=>x.checked=safeArray(r.tags).includes(x.value));$("tags").value=safeArray(r.tags).filter(t=>!STANDARD_BADGES.includes(t)).join(", ");$("cancel-edit-button").hidden=false;$("recipe-form").scrollIntoView({behavior:"smooth"})}
 async function deleteRecipe(id){const r=recipes.find(x=>x.id===id);if(!r||!confirm(`Delete "${r.title}"?`))return;const {error}=await db.from("recipes").delete().eq("id",id);if(error){alert(error.message);return}await loadRecipes()}
 function renderManagerList(){const list=$("manager-list");if(!list)return;$("manager-count").textContent=`${recipes.length} total`;if(!recipes.length){list.innerHTML='<p class="muted">No recipes yet.</p>';return}list.innerHTML=recipes.map(r=>`<div class="manager-row"><div><strong>${escapeHtml(r.emoji||"🍽️")} ${escapeHtml(r.title)}</strong><div class="muted">${escapeHtml(r.category)} · ${safeArray(r.tags).length} badge${safeArray(r.tags).length===1?"":"s"}</div></div><div class="manager-row-actions"><button class="secondary-button" data-edit="${r.id}">Edit</button><button class="danger-button" data-delete="${r.id}">Delete</button></div></div>`).join("");list.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editRecipe(b.dataset.edit));list.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>deleteRecipe(b.dataset.delete))}
-function switchManagerTab(tab){document.querySelectorAll(".manager-tab").forEach(b=>b.classList.toggle("active",b.dataset.managerTab===tab));$("manager-form-panel").hidden=tab!=="form";$("manager-library-panel").hidden=tab!=="library"}
+
+$("category-form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const name=$("category-name").value.trim();
+  const icon=$("category-icon").value.trim()||"🍽️";
+  $("category-message").textContent="Adding category…";
+  const {error}=await db.from("categories").insert({name,icon,sort_order:categories.length+1});
+  if(error){
+    $("category-message").textContent=error.code==="23505"?"That category already exists.":error.message;
+    return;
+  }
+  $("category-form").reset();
+  $("category-message").textContent="Category added.";
+  $("category-message").classList.add("success");
+  await loadRecipes();
+});
+async function deleteCategory(id){
+  const c=categories.find(x=>x.id===id);
+  if(!c)return;
+  const inUse=recipes.some(r=>r.category===c.name);
+  if(inUse){
+    alert(`"${c.name}" is currently used by one or more recipes. Move those recipes to another category before deleting it.`);
+    return;
+  }
+  if(!confirm(`Delete the "${c.name}" category?`))return;
+  const {error}=await db.from("categories").delete().eq("id",id);
+  if(error){alert(error.message);return}
+  if(activeCategory===c.name)activeCategory="All";
+  await loadRecipes();
+}
+function renderCategoryList(){
+  const list=$("category-list");
+  if(!list)return;
+  if(!categories.length){list.innerHTML='<p class="muted">No categories yet.</p>';return}
+  list.innerHTML=categories.map(c=>{
+    const used=recipes.filter(r=>r.category===c.name).length;
+    return `<div class="category-row"><div><span class="category-row-icon">${escapeHtml(c.icon||"🍽️")}</span><strong>${escapeHtml(c.name)}</strong><small>${used} recipe${used===1?"":"s"}</small></div><button class="danger-button" data-delete-category="${c.id}" ${used?"disabled title='Move recipes first'":""}>Delete</button></div>`;
+  }).join("");
+  list.querySelectorAll("[data-delete-category]").forEach(b=>b.onclick=()=>deleteCategory(b.dataset.deleteCategory));
+}
+
+function switchManagerTab(tab){document.querySelectorAll(".manager-tab").forEach(b=>b.classList.toggle("active",b.dataset.managerTab===tab));$("manager-form-panel").hidden=tab!=="form";$("manager-library-panel").hidden=tab!=="library";$("manager-categories-panel").hidden=tab!=="categories"}
 document.querySelectorAll(".manager-tab").forEach(b=>b.onclick=()=>switchManagerTab(b.dataset.managerTab));
-document.querySelectorAll(".filter").forEach(b=>b.onclick=()=>{document.querySelectorAll(".filter").forEach(x=>x.classList.remove("active"));b.classList.add("active");activeCategory=b.dataset.category;renderRecipes()});
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>$(b.dataset.close).close());
 search.addEventListener("input",renderRecipes);$("manager-button").onclick=openManager;$("cancel-edit-button").onclick=clearForm;
 renderBadgeOptions();
