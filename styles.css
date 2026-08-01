@@ -17,3 +17,7 @@
   .category-row>div{flex-wrap:wrap}
   .category-row small{width:100%;margin-left:44px}
 }
+/* Cook Mode prep / cook / serves values */
+.cook-dialog .info-box {
+    color: var(--ink) !important;
+}
